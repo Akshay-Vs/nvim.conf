@@ -9,7 +9,7 @@ return {
 			{
 				"mason-org/mason-lspconfig.nvim",
 				config = function() end,
-			}, -- Schema support
+			},
 			"b0o/schemastore.nvim",
 		},
 		opts = function()
@@ -316,31 +316,22 @@ return {
 				},
 
 				-- Custom setup functions
-				setup = {
-					-- Add any custom setup functions here
-					-- Example:
-					-- rust_analyzer = function(_, opts)
-					--   require("rust-tools").setup({ server = opts })
-					--   return true
-					-- end,
-				},
+				setup = {},
 			}
 			return ret
 		end,
 
 		---@param opts PluginLspOpts
 		config = vim.schedule_wrap(function(_, opts)
-			-- This handles the modern LazyVim LSP setup
-			-- Most of the configuration is handled through the opts function above
-
 			-- Setup autoformat (if LazyVim is available)
 			if LazyVim and LazyVim.format then
 				LazyVim.format.register(LazyVim.lsp.formatter())
 			end
 
-			-- Setup keymaps (if LazyVim is available)
-			if LazyVim and LazyVim.lsp then
-				LazyVim.lsp.on_attach(function(client, buffer)
+			-- Setup keymaps using Snacks
+			local has_snacks = pcall(require, "snacks")
+			if has_snacks then
+				require("snacks").util.lsp.on(function(client, buffer)
 					-- Custom keymaps
 					local opts_keymap = {
 						buffer = buffer,
@@ -389,78 +380,36 @@ return {
 							callback = vim.lsp.buf.clear_references,
 						})
 					end
-				end)
 
-				LazyVim.lsp.setup()
-				LazyVim.lsp.on_dynamic_capability(function(client, buffer)
-					-- Handle dynamic capabilities
-				end)
-			else
-				-- Fallback for non-LazyVim setups
-				local capabilities = require("cmp_nvim_lsp").default_capabilities()
-
-				local on_attach = function(client, bufnr)
-					local opts_keymap = {
-						buffer = bufnr,
-						silent = true,
-					}
-
-					-- Add your keymaps here (same as above)
-					vim.keymap.set("n", "gd", vim.lsp.buf.definition, opts_keymap)
-					-- ... (rest of the keymaps)
-				end
-
-				-- Setup each server
-				for server, config in pairs(opts.servers) do
-					if config ~= false then
-						local server_opts = vim.tbl_deep_extend("force", {
-							capabilities = capabilities,
-							on_attach = on_attach,
-						}, config or {})
-
-						require("lspconfig")[server].setup(server_opts)
-					end
-				end
-			end
-
-			-- Handle inlay hints
-			if opts.inlay_hints.enabled then
-				if LazyVim and LazyVim.lsp then
-					LazyVim.lsp.on_supports_method("textDocument/inlayHint", function(client, buffer)
+					-- Handle inlay hints for this buffer
+					if opts.inlay_hints.enabled then
 						if
-							vim.api.nvim_buf_is_valid(buffer)
+							client.supports_method("textDocument/inlayHint")
+							and vim.api.nvim_buf_is_valid(buffer)
 							and vim.bo[buffer].buftype == ""
 							and not vim.tbl_contains(opts.inlay_hints.exclude, vim.bo[buffer].filetype)
 						then
-							vim.lsp.inlay_hint.enable(true, {
-								bufnr = buffer,
-							})
+							vim.lsp.inlay_hint.enable(true, { bufnr = buffer })
 						end
-					end)
-				end
-			end
+					end
 
-			-- Handle folds
-			if opts.folds.enabled then
-				if LazyVim and LazyVim.lsp then
-					LazyVim.lsp.on_supports_method("textDocument/foldingRange", function(client, buffer)
-						vim.o.foldmethod = "expr"
-						vim.o.foldexpr = "v:lua.vim.lsp.foldexpr()"
-					end)
-				end
-			end
+					-- Handle folds for this buffer
+					if opts.folds.enabled and client.supports_method("textDocument/foldingRange") then
+						vim.wo[vim.fn.bufwinid(buffer)].foldmethod = "expr"
+						vim.wo[vim.fn.bufwinid(buffer)].foldexpr = "v:lua.vim.lsp.foldexpr()"
+					end
 
-			-- Handle code lens
-			if opts.codelens.enabled and vim.lsp.codelens then
-				if LazyVim and LazyVim.lsp then
-					LazyVim.lsp.on_supports_method("textDocument/codeLens", function(client, buffer)
+					-- Handle code lens for this buffer
+					if opts.codelens.enabled and vim.lsp.codelens and client.supports_method("textDocument/codeLens") then
 						vim.lsp.codelens.refresh()
 						vim.api.nvim_create_autocmd({ "BufEnter", "CursorHold", "InsertLeave" }, {
 							buffer = buffer,
-							callback = vim.lsp.codelens.refresh,
+							callback = function()
+								vim.lsp.codelens.refresh({ bufnr = buffer })
+							end,
 						})
-					end)
-				end
+					end
+				end)
 			end
 
 			-- Configure diagnostics
@@ -488,15 +437,15 @@ return {
 			local have_mason = LazyVim and LazyVim.has and LazyVim.has("mason-lspconfig.nvim")
 			local mason_all = have_mason
 					and vim.tbl_keys(require("mason-lspconfig.mappings").get_mason_map().lspconfig_to_package)
-				or {} --[[ @as string[] ]]
-			local mason_exclude = {} ---@type string[]
+				or {}
+			local mason_exclude = {}
 
 			---@return boolean? exclude automatic setup
 			local function configure(server)
 				local sopts = opts.servers[server]
 				sopts = sopts == true and {} or (not sopts) and {
 					enabled = false,
-				} or sopts --[[@as lazyvim.lsp.Config]]
+				} or sopts
 
 				if sopts.enabled == false then
 					mason_exclude[#mason_exclude + 1] = server
@@ -515,7 +464,7 @@ return {
 						-- Fallback for older Neovim versions or non-LazyVim setups
 						local capabilities = require("cmp_nvim_lsp").default_capabilities()
 						local on_attach = function(client, bufnr)
-							-- Add keymaps here if needed
+							-- Keymaps are handled by Snacks.util.lsp.on above
 						end
 
 						local server_config = vim.tbl_deep_extend("force", {
