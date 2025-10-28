@@ -32,3 +32,6 @@ vim.api.nvim_create_autocmd("BufWritePre", {
 		vim.lsp.buf.format({ async = false })
 	end,
 })
+
+-- Disable inlay hints by default
+vim.lsp.inlay_hint.enable(false)
