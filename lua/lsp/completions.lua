@@ -3,7 +3,8 @@ return { -- Main completion engine
     "hrsh7th/nvim-cmp",
     event = "InsertEnter",
     dependencies = { -- LSP completion source
-    "hrsh7th/cmp-nvim-lsp", -- Additional completion sources
+    "hrsh7th/cmp-nvim-lsp", -- Additional completion sources,
+       "hrsh7th/cmp-nvim-lsp-signature-help",
     "hrsh7th/cmp-buffer", "hrsh7th/cmp-path", "hrsh7th/cmp-cmdline", -- Snippet completion
     "saadparwaiz1/cmp_luasnip", -- Optional: Icons
     "onsails/lspkind.nvim", -- Optional: Git completion
