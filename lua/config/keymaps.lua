@@ -53,7 +53,7 @@ map("n", "<A-k>", "<cmd>execute 'move .-' . (v:count1 + 1)<cr>==", {
 })
 
 -- Toggle inlay_hint
-vim.keymap.set("n", "<leader>h", function()
+map("n", "<leader>h", function()
 	vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled())
 end, { desc = "Toggle Inlay Hints" })
 
@@ -86,3 +86,11 @@ map("t", "<C-/>", "<cmd>close<cr>", {
 map("t", "<c-_>", "<cmd>close<cr>", {
 	desc = "which_key_ignore",
 })
+
+-- ================================
+-- Format code
+-- ================================
+-- Format current buffer
+map("n", "<leader>f", function()
+	vim.lsp.buf.format({ async = true })
+end, { desc = "Format code with LSP" })
